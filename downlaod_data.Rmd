@@ -1,0 +1,118 @@
+
+# LINK : https://bioconductor.org/packages/release/bioc/vignettes/TCGAbiolinks/inst/doc/download_prepare.html
+#install TCGAbiolinks
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("TCGAbiolinks")
+```
+
+
+# download the package 
+```{r}
+library (TCGAbiolinks)
+library(SummarizedExperiment)
+```
+
+# Get information on gene expression  ( normalized data) based on hg19 ( already done )
+```{r}
+query <- GDCquery(
+    project = "TCGA-BLCA", # Bladder cancer 
+    data.category = "Gene expression", # Take data category of your choice 
+    data.type = "Gene expression quantification",
+    platform = "Illumina HiSeq", 
+    file.type  = "normalized_results",
+    experimental.strategy = "RNA-Seq",
+    data.format='TSV',
+    legacy = TRUE
+)
+## patient multiple information 
+# download data in folder and read it  
+GDCdownload(query, method = "api",directory = 'D:/DEEP_learning_project/DATA')
+# create RangedSUmmarized object ( store data )
+data <- GDCprepare(query = query,directory = 'D:/DEEP_learning_project/DATA/',summarizedExperiment= T )
+# read it as data frame
+# barcode x description 
+file=as.data.frame(colData(data))
+
+## patient gene information
+# download data in folder and read it  
+
+# create RangedSUmmarized object ( store data )
+# gene expression x barcode 
+data_1 <- GDCprepare(query = query,directory = 'D:/DEEP_learning_project/DATA/',summarizedExperiment= F )
+
+df_t <- transpose(data_1)
+
+#redefine row and column names
+rownames(df_t) <- colnames(data_1)
+colnames(df_t) <- rownames(data_1)
+
+# remove caract
+row.names(df_t)=gsub(".*_", "", row.names(df_t))
+
+fwrite(x = df_t,file='df_t.csv',sep = ';',row.names = T,col.names = T)
+
+# Merge 
+df_t$add_patient <- rownames(df_t)
+file$add_patient <- rownames(file)
+
+
+merged <- join_all(list(df_t,file), by = 'add_patient', type = 'full')
+```
+
+
+# Methylation 
+```{r}
+Methylation  <- GDCquery(
+    project = "TCGA-BLCA", # Bladder cancer 
+    data.category = "DNA methylation", # Take data category of your choice 
+    platform = "Illumina Human Methylation 450", 
+    data.format='TSV',
+    legacy = TRUE
+)
+
+GDCdownload(Methylation, method = "api",directory = 'data/Methylation')
+
+Methylation_description<- GDCprepare(query = Methylation,directory = 'data/Methylation',summarizedExperiment= T )
+
+# check what is inside the file : 
+file_methy=as.data.frame(colData(Methylation_description))
+
+#same
+file_2 <- GDCprepare(query = Methylation,directory = 'data/Methylation',summarizedExperiment= F )
+
+df_file_methy<-data.frame(lapply(file_methy,as.character),stringsAsFactors = FALSE)
+libray(data.table)
+fwrite(df_file_methy,file="patient_methy.csv",sep=";",row.names=T, col.names=T)
+
+
+```
+
+# Protein Expression 
+```{r}
+
+query_pro <- GDCquery(
+    project = "TCGA-BLCA",
+    data.category = "Protein expression",
+    legacy = TRUE, 
+)
+
+## patient multiple information 
+# download data in folder and read it  
+GDCdownload(query_pro, method = "api",directory = 'data2/protein')
+# create RangedSUmmarized object ( store data )
+data_pro_pateint <- colGDCprepare(query = query_pro,directory = 'data2/protein',summarizedExperiment= T )
+# read it as data frame
+# barcode x description 
+file_pro=as.data.frame(colData(data_pro_pateint))
+
+## patient gene information
+# download data in folder and read it  
+
+# create RangedSUmmarized object ( store data )
+# gene expression x barcode 
+data_pro_expression <- GDCprepare(query = query_pro,directory = 'data/protein',summarizedExperiment= F )
+```
+
