@@ -1,0 +1,70 @@
+---
+title: "Gene ordering"
+author: "hamid"
+date: '2023-01-13'
+output: html_document
+---
+
+```{r}
+# ORDERING GENE BASED ON CHROMOSOMAL LOCATION 
+```{r}
+
+# get gene location 
+
+library(biomaRt)
+library(BSgenome.Hsapiens.UCSC.hg19)
+library(data.table)
+
+
+mart <- useMart("ENSEMBL_MART_ENSEMBL", dataset = "hsapiens_gene_ensembl")
+
+genes.table <- try(biomaRt::getBM(attributes = c("ensembl_gene_id", "external_gene_name",
+"description", "gene_biotype", "chromosome_name", "start_position",'end_position','entrezgene_id'), mart = mart, useCache = F))  
+
+
+
+
+
+x=fread('D:/DEEP_learning_project/df_transpose.csv')
+x=as.data.frame(x)
+
+# remove value before | of interest only 
+colnames(x)[2:30] <- gsub(x = colnames(x)[2:30],pattern = "?|", replacement = "",fixed = TRUE)
+names(x)[2:30] <- as.character(genes.table$external_gene_name[match(names(x)[2:30], genes.table$entrezgene_id)])
+
+# remove everything after | ( included ) for each gene name
+colnames(x)[31:length(colnames(x))]  <- gsub("\\|.*","",colnames(x)[31:length(colnames(x))])
+
+# remove NA colnames who didn't match 
+x <- x[!is.na(names(x))]
+
+
+
+lol=x
+get_gene_name=as.data.frame(colnames(lol))
+colnames(get_gene_name)='gene_names'
+get_gene_name=left_join(get_gene_name,genes.table, by = c("gene_names"="external_gene_name"))
+get_gene_name=get_gene_name[!is.na(get_gene_name$start_position),]
+get_gene_name=get_gene_name[!is.na(get_gene_name$end_position),]
+get_gene_name=get_gene_name[!is.na(get_gene_name$chromosome_name),]
+for (i in 1:length(get_gene_name$gene_names)){
+  print(i)
+  get_gene_name$mean_position[i]=(as.double((get_gene_name$end_position[i])+get_gene_name$start[i])/2)}
+
+# order 
+get_gene_name=get_gene_name[order( get_gene_name[,5], get_gene_name[,9] ),]
+
+# get genes as vector 
+avector=get_gene_name$gene_names
+avector=unique(avector)
+
+# drop columns in x for  gene with no chromosome location and no start/end site
+x=x[avector]
+
+# reorder on x 
+x <- x[, avector]
+
+# save
+fwrite(x = x,file='D:/DEEP_learning_project/gene_data_ordered.csv',sep = ';')
+```
+
